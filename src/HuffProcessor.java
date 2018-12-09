@@ -73,9 +73,11 @@ public class HuffProcessor {
 		if(root.myLeft == null && root.myRight == null) {
 			out.writeBits(1,1);
 			out.writeBits(BITS_PER_WORD + 1, root.myValue);
+			
+			return;
 		}
 		else {
-			out.writeBits(1, 0);
+			out.writeBits(1,0);
 			if(root.myLeft != null) {
 				writeHeader(root.myLeft,out);
 			}
@@ -123,8 +125,6 @@ public class HuffProcessor {
 			HuffNode left = pq.remove();
 			HuffNode right = pq.remove();
 			HuffNode cool = new HuffNode(0,left.myWeight + right.myWeight,left,right);
-			//create new HuffNode t with weight from left.weight+right.weight
-			//and left, right subtrees
 			pq.add(cool);
 		}
 		HuffNode root = pq.remove();
