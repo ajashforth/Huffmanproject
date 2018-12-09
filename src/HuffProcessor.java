@@ -47,36 +47,70 @@ public class HuffProcessor {
 		String[] codings = makeCodingsFromTree(root);
 		
 		out.writeBits(BITS_PER_INT, HUFF_TREE);
-		//writeHeader(root,out);
+		writeHeader(root,out);
 		
 		in.reset();
-		//writeCompressedBits(codings,in,out);
+		writeCompressedBits(codings,in,out);
 	}
-	private String[] makeCodingsFromTree(HuffNode root) {
-		String[] answer = new String[ALPH_SIZE + 1];
-		codingHelper(root,"",answer);
-		return answer;
+	private void writeCompressedBits(String[] codings, BitInputStream in, BitOutputStream out) {
+		
+		String code = codings[PSEUDO_EOF];
+		in.readBits(BITS_PER_WORD);
+		out.writeBits(code.length(), Integer.parseInt(code,2));
+
 	}
 
-	private void codingHelper(HuffNode root, String path, String[] answer) {
-		if(path == "!") {
-			answer[root.myValue] = path;
-			return;
+	private void writeHeader(HuffNode root, BitOutputStream out) {
+		if(root == null) {
+			throw new HuffException("Null root");
+		}
+		if(root.myLeft == null && root.myRight == null) {
+			out.writeBits(1,1);
+			out.writeBits(BITS_PER_WORD, root.myValue);
+		}
+		else {
+			out.writeBits(1, 0);
+			if(root.myLeft != null) {
+				writeHeader(root.myLeft,out);
+			}
+			if (root.myRight != null) {
+				writeHeader(root.myRight,out);
+			}
+		}
+		
+	}
+
+	private String[] makeCodingsFromTree(HuffNode root) {
+		String[] encoding = new String[ALPH_SIZE + 1];
+		encoding = codingHelper(root,"",encoding);
+		return encoding;
+	}
+
+	private String[] codingHelper(HuffNode root, String path, String[] encoding) {
+		if(root.myLeft == null && root.myRight == null) {
+			encoding[root.myValue] = path;
+			return encoding;
 		}
 		else {
 			String leftPath = path + "0";
 			String rightPath = path + "1";
-			codingHelper(root.myLeft,leftPath,answer);
-			codingHelper(root.myRight,rightPath,answer);
+			if (root.myLeft != null) {
+				encoding = codingHelper(root.myLeft,leftPath,encoding);
+			}
+			if (root.myRight != null) {
+				encoding = codingHelper(root.myRight,rightPath,encoding);
+			}
 		}
-		
+		return encoding;
 	}
 
 	private HuffNode makeTreeFromCounts(int[] counts) {
 		PriorityQueue<HuffNode> pq = new PriorityQueue<>();
 		
 		for(int i = 0; i < counts.length; i++) {
-			pq.add(new HuffNode(i,counts[i]));
+			if (counts[i] > 0) {
+				pq.add(new HuffNode(i,counts[i]));
+			}
 		}
 		
 		while (pq.size()>1) {
