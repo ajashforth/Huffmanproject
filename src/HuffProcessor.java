@@ -53,10 +53,16 @@ public class HuffProcessor {
 		writeCompressedBits(codings,in,out);
 	}
 	private void writeCompressedBits(String[] codings, BitInputStream in, BitOutputStream out) {
-		
-		String code = codings[PSEUDO_EOF];
-		in.readBits(BITS_PER_WORD);
-		out.writeBits(code.length(), Integer.parseInt(code,2));
+		while(true) {
+			int var = in.readBits(BITS_PER_WORD);
+			if (var == -1) {
+				String code = codings[PSEUDO_EOF];
+				out.writeBits(code.length(), Integer.parseInt(code,2));
+				break;
+			}
+			String code = codings[var];
+			out.writeBits(code.length(), Integer.parseInt(code,2));
+		}
 
 	}
 
@@ -127,12 +133,16 @@ public class HuffProcessor {
 
 	private int[] readForCounts(BitInputStream in) {
 		int[] freqs = new int[ALPH_SIZE+1];
-		int bits = in.readBits(BITS_PER_WORD);
-		if(bits != HUFF_TREE) {
-			throw new HuffException("illegal header starts with " + bits);
+		while(true) {
+			int bits = in.readBits(BITS_PER_WORD);
+			if(bits == -1) {
+				freqs[PSEUDO_EOF] = 1;
+				break;
+			}
+			else {
+				freqs[bits] = freqs[bits] + 1;
+			}
 		}
-		freqs[bits] = freqs[bits] + 1;
-		freqs[PSEUDO_EOF] = 1;
 		return freqs;
 	}
 
