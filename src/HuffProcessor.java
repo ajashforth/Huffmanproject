@@ -1,4 +1,4 @@
-
+import java.util.*;
 /**
  * Although this class has a history of several years,
  * it is starting from a blank-slate, new and clean implementation
@@ -41,14 +41,67 @@ public class HuffProcessor {
 	 *            Buffered bit stream writing to the output file.
 	 */
 	public void compress(BitInputStream in, BitOutputStream out){
-
-		while (true){
-			int val = in.readBits(BITS_PER_WORD);
-			if (val == -1) break;
-			out.writeBits(BITS_PER_WORD, val);
-		}
-		out.close();
+		
+		int[] counts = readForCounts(in);
+		HuffNode root = makeTreeFromCounts(counts);
+		String[] codings = makeCodingsFromTree(root);
+		
+		out.writeBits(BITS_PER_INT, HUFF_TREE);
+		//writeHeader(root,out);
+		
+		in.reset();
+		//writeCompressedBits(codings,in,out);
 	}
+	private String[] makeCodingsFromTree(HuffNode root) {
+		String[] answer = new String[ALPH_SIZE + 1];
+		codingHelper(root,"",answer);
+		return answer;
+	}
+
+	private void codingHelper(HuffNode root, String path, String[] answer) {
+		if(path == "!") {
+			answer[root.myValue] = path;
+			return;
+		}
+		else {
+			String leftPath = path + "0";
+			String rightPath = path + "1";
+			codingHelper(root.myLeft,leftPath,answer);
+			codingHelper(root.myRight,rightPath,answer);
+		}
+		
+	}
+
+	private HuffNode makeTreeFromCounts(int[] counts) {
+		PriorityQueue<HuffNode> pq = new PriorityQueue<>();
+		
+		for(int i = 0; i < counts.length; i++) {
+			pq.add(new HuffNode(i,counts[i]));
+		}
+		
+		while (pq.size()>1) {
+			HuffNode left = pq.remove();
+			HuffNode right = pq.remove();
+			HuffNode cool = new HuffNode(0,left.myWeight + right.myWeight,left,right);
+			//create new HuffNode t with weight from left.weight+right.weight
+			//and left, right subtrees
+			pq.add(cool);
+		}
+		HuffNode root = pq.remove();
+		return root;
+	}
+
+	private int[] readForCounts(BitInputStream in) {
+		int[] freqs = new int[ALPH_SIZE+1];
+		int bits = in.readBits(BITS_PER_WORD);
+		if(bits != HUFF_TREE) {
+			throw new HuffException("illegal header starts with " + bits);
+		}
+		freqs[bits] = freqs[bits] + 1;
+		freqs[PSEUDO_EOF] = 1;
+		return freqs;
+	}
+
 	/**
 	 * Decompresses a file. Output file must be identical bit-by-bit to the
 	 * original.
@@ -83,7 +136,7 @@ public class HuffProcessor {
 				else {
 					current = current.myRight;
 				}
-				if (current.myValue != 0) {
+				if (current.myLeft == null && current.myRight == null) {
 					if (current.myValue == PSEUDO_EOF) {
 						break;
 					}
